@@ -12,12 +12,17 @@ import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+object WeatherStore {
+    var weathers: List<WeatherItem>? = null
+
+    fun updateWeather(newWeather: List<WeatherItem>) {
+        weathers = newWeather
+    }
+}
 
 class MainActivity : AppCompatActivity() {
     private lateinit var adapter: WeatherAdapter
     private lateinit var cityNameTextView: TextView
-
-    private var weatherItems: List<WeatherItem>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,19 +38,11 @@ class MainActivity : AppCompatActivity() {
             adapter = this@MainActivity.adapter
         }
 
-        // if savedInstanceState is null then make a request else get json from savedInstanceState
-        if (savedInstanceState == null) {
+        if (WeatherStore.weathers == null) {
             fetchWeather()
         } else {
-            val weatherItemsJson = savedInstanceState.getString("weather_data")
-            Timber.d("savedInstanceState: Loaded saved weather data from savedInstanceState: ${weatherItemsJson ?: "no data"}")
-            if (weatherItemsJson != null) {
-                weatherItems = Gson().fromJson(weatherItemsJson, Array<WeatherItem>::class.java).toList()
-                adapter.submitList(weatherItems)
-                Timber.d("MainActivity: Restored weather data from savedInstanceState")
-            } else {
-                Timber.w("MainActivity: Saved data is null")
-            }
+            adapter.submitList(WeatherStore.weathers)
+            Timber.d("MainActivity: Loaded weather data from WeatherStore: ${WeatherStore.weathers}")
         }
     }
 
@@ -60,7 +57,7 @@ class MainActivity : AppCompatActivity() {
                 // log response body to timber
                 Timber.d("Response: $response.list")
 
-                weatherItems = response.list.map { weather ->
+                WeatherStore.updateWeather(response.list.map { weather ->
                     val iconCode = weather.weather[0].icon
                     val temperature = "${(weather.main.temp - 273.15).toInt()}°C"
 
@@ -73,8 +70,8 @@ class MainActivity : AppCompatActivity() {
 
                     val iconUrl = "http://openweathermap.org/img/wn/$iconCode@2x.png"
                     WeatherItem(temperature, iconUrl, time, date)
-                }
-                adapter.submitList(weatherItems)
+                })
+                adapter.submitList(WeatherStore.weathers)
 
                 cityNameTextView.text = city
 
@@ -87,7 +84,7 @@ class MainActivity : AppCompatActivity() {
     // override onSaveInstanceState(outState: Bundle) and save response data to bundle
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        weatherItems?.let {
+        WeatherStore.weathers?.let {
             val weatherItemsJson = Gson().toJson(it)
             outState.putString("weather_data", weatherItemsJson)
             Timber.d("MainActivity: Saved weather data")
